@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#17324d">
+<link rel="manifest" href="manifest.json">
+<title>Sip & Paint Business Planner</title>
+<style>
+:root{--navy:#17324d;--blue:#2f75b5;--gold:#e6b94a;--cream:#fff8df;--green:#70ad47;--bg:#f3f5f7}
+*{box-sizing:border-box} body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:#1f2937}
+header{background:var(--navy);color:white;padding:18px;position:sticky;top:0;z-index:5}
+header h1{margin:0;font-size:1.3rem}.sub{opacity:.8;font-size:.9rem;margin-top:4px}
+nav{display:flex;gap:8px;overflow:auto;padding:10px;background:white;border-bottom:1px solid #ddd;position:sticky;top:76px;z-index:4}
+nav button,.btn{border:0;border-radius:8px;padding:10px 14px;cursor:pointer;background:#e5e7eb}
+nav button.active,.btn.primary{background:var(--blue);color:white}.btn.good{background:var(--green);color:white}.btn.warn{background:var(--gold)}
+main{max-width:1150px;margin:auto;padding:16px}.tab{display:none}.tab.active{display:block}
+.card{background:white;border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 2px 8px #00000012}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+label{font-size:.82rem;font-weight:bold;display:block;margin-bottom:5px}
+input,select{width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:7px;background:var(--cream)}
+table{width:100%;border-collapse:collapse;min-width:900px}th{background:var(--blue);color:white}
+th,td{padding:8px;border:1px solid #d8dee6;text-align:left}td input{min-width:90px}
+.scroll{overflow:auto}.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.kpi{background:white;border-left:6px solid var(--gold);border-radius:10px;padding:14px}.kpi b{font-size:1.35rem;display:block;margin-top:6px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.muted{font-size:.85rem;color:#64748b}
+@media print{nav,.actions{display:none}header{position:static}.tab{display:block!important}.card{box-shadow:none}}
+</style>
+</head>
+<body>
+<header><h1>Sip & Paint Business Planner</h1><div class="sub">Oakland event budgeting, sales, inventory and profit</div></header>
+<nav id="nav"></nav>
+<main>
+<section id="dashboard" class="tab active"><div class="kpis" id="kpis"></div>
+<div class="card"><h2>Event Inputs</h2><div class="grid" id="eventInputs"></div></div>
+<div class="actions"><button class="btn good" onclick="save()">Save</button><button class="btn" onclick="exportData()">Export Backup</button><label class="btn">Import Backup<input hidden type="file" onchange="importData(event)"></label><button class="btn warn" onclick="window.print()">Print / Save PDF</button></div></section>
+<section id="venue" class="tab"><div class="card"><h2>Venue & Fees</h2><div class="scroll"><table id="venueTable"></table></div></div></section>
+<section id="supplies" class="tab"><div class="card"><h2>Supplies & Vendors</h2><div class="scroll"><table id="supplyTable"></table></div></div></section>
+<section id="sales" class="tab"><div class="card"><h2>Merchandise, Food & Beverage</h2><div class="scroll"><table id="salesTable"></table></div></div></section>
+<section id="inventory" class="tab"><div class="card"><h2>Reusable Inventory</h2><div class="scroll"><table id="inventoryTable"></table></div></div></section>
+</main>
+<script>
+const tabs=[["dashboard","Dashboard"],["venue","Venue"],["supplies","Supplies"],["sales","Sales"],["inventory","Inventory"]];
+document.getElementById("nav").innerHTML=tabs.map((t,i)=>`<button class="${i?'':'active'}" onclick="showTab('${t[0]}',this)">${t[1]}</button>`).join("");
+function showTab(id,b){document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active')}
+const defaultState={
+ event:{name:"August 29 Sip & Paint",date:"2026-08-29",location:"Oakland, CA",guests:100,ticket:55,sponsor:0,otherIncome:0},
+ venue:[
+ ["Base venue rental",0,false],["Security / damage deposit",0,true],["Cleaning fee",0,false],
+ ["Insurance",0,false],["Security personnel",0,false],["Tables and chairs",0,false],["Other venue fee",0,false]],
+ supplies:[
+ ["Canvas",'8 x 10 stretched canvas',"Blick","",0,110,0],
+ ["Paint","White acrylic 64 oz","Blick","",0,2,0],
+ ["Paint","Black acrylic 64 oz","Blick","",0,1,0],
+ ["Paint","Red acrylic 64 oz","Blick","",0,1,0],
+ ["Paint","Blue acrylic 64 oz","Blick","",0,1,0],
+ ["Paint","Yellow acrylic 64 oz","Blick","",0,1,0],
+ ["Brush","Large flat synthetic","Blick","",0,120,0],
+ ["Brush","Medium flat synthetic","Blick","",0,120,0],
+ ["Brush","Small round synthetic","Blick","",0,120,0],
+ ["Easel","Reusable tabletop easel","","",0,110,0]],
+ sales:[
+ ["Merchandise","T-Shirt","",0,0,0,0,0,0],
+ ["Merchandise","Apron","",0,0,0,0,0,0],
+ ["Beverage","Water","",0,0,0,0,0,0],
+ ["Beverage","Soda / Juice","",0,0,0,0,0,0],
+ ["Beverage","Wine / Beer*","",0,0,0,0,0,0],
+ ["Food","Snacks","",0,0,0,0,0,0],
+ ["Food","Charcuterie Cup","",0,0,0,0,0,0],
+ ["Food","Meal / Entrée","",0,0,0,0,0,0]],
+ inventory:[
+ ["Easels",0,110,0,0,100],["Large brushes",0,120,0,0,110],["Medium brushes",0,120,0,0,110],
+ ["Small brushes",0,120,0,0,110],["Aprons",0,120,0,0,110]]
+};
+let state=JSON.parse(localStorage.getItem("sipPaintPlanner")||"null")||defaultState;
+const money=n=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(Number(n)||0);
+function num(v){return Number(v)||0}
+function render(){
+ const eventFields=[["name","Event Name","text"],["date","Event Date","date"],["location","Venue / Location","text"],["guests","Expected Guests","number"],["ticket","Ticket Price","number"],["sponsor","Sponsorship Income","number"],["otherIncome","Other Income","number"]];
+ eventInputs.innerHTML=eventFields.map(([k,l,t])=>`<div><label>${l}</label><input type="${t}" value="${state.event[k]}" onchange="state.event.${k}=this.value;render()"></div>`).join("");
+ renderVenue();renderSupplies();renderSales();renderInventory();renderKpis();
+}
+function renderVenue(){
+ venueTable.innerHTML=`<tr><th>Fee / Deposit</th><th>Amount</th><th>Refundable?</th><th>Operating Cost</th></tr>`+
+ state.venue.map((r,i)=>`<tr><td><input value="${r[0]}" onchange="state.venue[${i}][0]=this.value"></td><td><input type=number value="${r[1]}" onchange="state.venue[${i}][1]=this.value;render()"></td><td><input type=checkbox ${r[2]?'checked':''} onchange="state.venue[${i}][2]=this.checked;render()"></td><td>${money(r[2]?0:r[1])}</td></tr>`).join("")+
+ `<tr><td colspan=4><button class=btn onclick="state.venue.push(['New fee',0,false]);render()">Add Row</button></td></tr>`;
+}
+function renderSupplies(){
+ supplyTable.innerHTML=`<tr><th>Category</th><th>Item</th><th>Vendor</th><th>Alternate</th><th>Unit Cost</th><th>Qty</th><th>Shipping</th><th>Total</th></tr>`+
+ state.supplies.map((r,i)=>`<tr>${r.slice(0,4).map((v,j)=>`<td><input value="${v}" onchange="state.supplies[${i}][${j}]=this.value"></td>`).join("")}<td><input type=number value="${r[4]}" onchange="state.supplies[${i}][4]=this.value;render()"></td><td><input type=number value="${r[5]}" onchange="state.supplies[${i}][5]=this.value;render()"></td><td><input type=number value="${r[6]}" onchange="state.supplies[${i}][6]=this.value;render()"></td><td>${money(num(r[4])*num(r[5])+num(r[6]))}</td></tr>`).join("")+
+ `<tr><td colspan=8><button class=btn onclick="state.supplies.push(['Category','New item','','',0,1,0]);render()">Add Row</button></td></tr>`;
+}
+function renderSales(){
+ salesTable.innerHTML=`<tr><th>Category</th><th>Item</th><th>Vendor</th><th>Unit Cost</th><th>Sell Price</th><th>Purchased</th><th>Sold</th><th>Processing Fees</th><th>Other Fees</th><th>Gross Sales</th><th>Net Profit</th></tr>`+
+ state.sales.map((r,i)=>{let gross=num(r[4])*num(r[6]), profit=gross-num(r[3])*num(r[6])-num(r[7])-num(r[8]);return `<tr>${r.slice(0,3).map((v,j)=>`<td><input value="${v}" onchange="state.sales[${i}][${j}]=this.value"></td>`).join("")}${r.slice(3,9).map((v,j)=>`<td><input type=number value="${v}" onchange="state.sales[${i}][${j+3}]=this.value;render()"></td>`).join("")}<td>${money(gross)}</td><td>${money(profit)}</td></tr>`}).join("")+
+ `<tr><td colspan=11><button class=btn onclick="state.sales.push(['Food','New item','',0,0,0,0,0,0]);render()">Add Row</button></td></tr>`;
+}
+function renderInventory(){
+ inventoryTable.innerHTML=`<tr><th>Item</th><th>Starting</th><th>Purchased</th><th>Used</th><th>Damaged/Lost</th><th>Ending</th><th>Reorder Level</th><th>Reorder?</th></tr>`+
+ state.inventory.map((r,i)=>{let end=num(r[1])+num(r[2])-num(r[3])-num(r[4]);return `<tr><td><input value="${r[0]}" onchange="state.inventory[${i}][0]=this.value"></td>${r.slice(1).map((v,j)=>`<td><input type=number value="${v}" onchange="state.inventory[${i}][${j+1}]=this.value;render()"></td>`).join("")}<td>${end}</td><td>${end<=num(r[5])?'YES':'NO'}</td></tr>`}).join("")+
+ `<tr><td colspan=8><button class=btn onclick="state.inventory.push(['New item',0,0,0,0,0]);render()">Add Row</button></td></tr>`;
+}
+function renderKpis(){
+ const venueOp=state.venue.reduce((a,r)=>a+(r[2]?0:num(r[1])),0), deposits=state.venue.reduce((a,r)=>a+(r[2]?num(r[1]):0),0);
+ const supplies=state.supplies.reduce((a,r)=>a+num(r[4])*num(r[5])+num(r[6]),0);
+ const ticket=num(state.event.guests)*num(state.event.ticket);
+ const salesGross=state.sales.reduce((a,r)=>a+num(r[4])*num(r[6]),0);
+ const salesProfit=state.sales.reduce((a,r)=>a+num(r[4])*num(r[6])-num(r[3])*num(r[6])-num(r[7])-num(r[8]),0);
+ const totalRevenue=ticket+num(state.event.sponsor)+num(state.event.otherIncome)+salesGross;
+ const eventCosts=venueOp+supplies;
+ const combinedProfit=ticket+num(state.event.sponsor)+num(state.event.otherIncome)-eventCosts+salesProfit;
+ const vals=[["Total Revenue",totalRevenue],["Operating Costs",eventCosts],["Deposits Held",deposits],["Sales Gross",salesGross],["Sales Profit",salesProfit],["Combined Profit",combinedProfit]];
+ kpis.innerHTML=vals.map(([l,v])=>`<div class=kpi>${l}<b>${money(v)}</b></div>`).join("");
+}
+function save(){localStorage.setItem("sipPaintPlanner",JSON.stringify(state));alert("Saved on this device.");}
+function exportData(){let b=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});let a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="sip-paint-planner-backup.json";a.click()}
+function importData(e){let f=e.target.files[0];if(!f)return;let rd=new FileReader();rd.onload=()=>{state=JSON.parse(rd.result);save();render()};rd.readAsText(f)}
+render();
+if("serviceWorker" in navigator) navigator.serviceWorker.register("service-worker.js").catch(()=>{});
+</script>
+</body></html>
