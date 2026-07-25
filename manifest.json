@@ -1,7 +1,8 @@
 {
   "name": "Sip & Paint Business Planner",
-  "short_name": "SipPaint Planner",
-  "start_url": "./index.html",
+  "short_name": "SNP Planner",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f3f5f7",
   "theme_color": "#17324d",
